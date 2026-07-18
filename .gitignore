@@ -1,0 +1,16 @@
+# 可视化头脑风暴临时文件
+.superpowers/
+
+# Android 构建产物（后续实现阶段生效）
+.gradle/
+build/
+local.properties
+*.keystore
+*.jks
+*.p12
+
+# 本地拉取的 APK 发布件
+发布/
+
+# 签名密钥与密码（绝不上传）
+签名密钥/
