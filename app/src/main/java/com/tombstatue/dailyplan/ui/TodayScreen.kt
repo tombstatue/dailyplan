@@ -3,7 +3,6 @@ package com.tombstatue.dailyplan.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,20 +10,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,7 +36,6 @@ import com.tombstatue.dailyplan.ui.theme.Accent
 import com.tombstatue.dailyplan.ui.theme.AllDoneGreen
 import com.tombstatue.dailyplan.ui.theme.CardBg
 import com.tombstatue.dailyplan.ui.theme.CardBorder
-import com.tombstatue.dailyplan.ui.theme.SheetBg
 import com.tombstatue.dailyplan.ui.theme.TextDim
 import com.tombstatue.dailyplan.ui.theme.TextMain
 import com.tombstatue.dailyplan.ui.theme.TextStruck
@@ -90,6 +80,16 @@ fun TodayScreen(vm: PlanViewModel, padding: PaddingValues) {
                     )
                 }
             }
+            // 当天的重要事件：顶部加粗横幅
+            today.events.forEach { event ->
+                Text(
+                    "📌 ${event.text}",
+                    color = UndoneRed,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
             Spacer(Modifier.height(14.dp))
         }
         Period.entries.forEach { period ->
@@ -107,8 +107,8 @@ fun TodayScreen(vm: PlanViewModel, padding: PaddingValues) {
     }
 
     addTarget?.let { period ->
-        AddTaskSheet(
-            period = period,
+        TextInputSheet(
+            title = "添加到 ${period.emoji} ${period.label}",
             onConfirm = { text ->
                 vm.add(period, text)
                 addTarget = null
@@ -118,20 +118,14 @@ fun TodayScreen(vm: PlanViewModel, padding: PaddingValues) {
     }
 
     deleteTarget?.let { task ->
-        AlertDialog(
-            onDismissRequest = { deleteTarget = null },
-            containerColor = SheetBg,
-            title = { Text("删除这条计划？", color = TextMain, fontSize = 17.sp) },
-            text = { Text(task.text, color = TextDim) },
-            confirmButton = {
-                TextButton(onClick = {
-                    vm.delete(task.id)
-                    deleteTarget = null
-                }) { Text("删除", color = UndoneRed) }
+        ConfirmDeleteDialog(
+            title = "删除这条计划？",
+            content = task.text,
+            onConfirm = {
+                vm.delete(task.id)
+                deleteTarget = null
             },
-            dismissButton = {
-                TextButton(onClick = { deleteTarget = null }) { Text("取消", color = TextDim) }
-            }
+            onDismiss = { deleteTarget = null }
         )
     }
 }
@@ -201,55 +195,10 @@ private fun TaskRow(task: Task, onToggle: (String) -> Unit, onLongPress: (Task) 
             task.text,
             color = if (task.done) TextStruck else TextMain,
             fontSize = 15.sp,
+            // 提前规划的日程加粗显示，与当天临时添加的区分
+            fontWeight = if (task.fromPlan) FontWeight.Bold else FontWeight.Normal,
             textDecoration = if (task.done) TextDecoration.LineThrough else null,
             modifier = Modifier.weight(1f)
         )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AddTaskSheet(period: Period, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
-    var text by remember { mutableStateOf("") }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = SheetBg) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 24.dp)
-                .imePadding()
-        ) {
-            Text(
-                "添加到 ${period.emoji} ${period.label}",
-                color = TextMain,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.height(10.dp))
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("写下你的计划…", color = TextDim) },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Accent,
-                    unfocusedBorderColor = CardBorder,
-                    focusedTextColor = TextMain,
-                    unfocusedTextColor = TextMain,
-                    cursorColor = Accent
-                )
-            )
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = onDismiss) { Text("取消", color = TextDim) }
-                Spacer(Modifier.width(8.dp))
-                Button(
-                    onClick = { onConfirm(text) },
-                    enabled = text.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Accent)
-                ) { Text("添加") }
-            }
-        }
     }
 }

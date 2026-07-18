@@ -1,5 +1,6 @@
 package com.tombstatue.dailyplan.logic
 
+import com.tombstatue.dailyplan.data.DayPlan
 import com.tombstatue.dailyplan.data.DayRecord
 import com.tombstatue.dailyplan.data.TodayState
 import java.time.Instant
@@ -21,18 +22,53 @@ object DayLogic {
             .toLocalDate()
             .toString()
 
+    /** 结算结果 */
+    data class RolloverResult(
+        val newToday: TodayState,
+        val archived: List<DayRecord>,    // 需追加进历史的记录，按日期升序
+        val remainingPlans: List<DayPlan> // 消费/清理后的未来规划
+    )
+
     /**
-     * 结算：若日期已跨天，返回（清空的新状态, 归档记录）；
-     * 未跨天返回（原状态, null）；跨天但当天无任务时归档记录为 null。
+     * 结算 v2：
+     * - 未跨天：原样返回
+     * - 跨天：归档原今天 → 被跳过的中间日按"全部未完成"归档 → 新今天并入该日期的规划
+     *   （规划日程标记 fromPlan、事件进 events）→ 移除所有日期 ≤ 新日期的规划
      */
     fun rollover(
         state: TodayState,
+        plans: List<DayPlan>,
         nowMillis: Long,
         zone: ZoneId = ZoneId.systemDefault()
-    ): Pair<TodayState, DayRecord?> {
+    ): RolloverResult {
         val today = logicalDate(nowMillis, zone)
-        if (state.logicalDate == today) return state to null
-        val record = if (state.tasks.isNotEmpty()) DayRecord(state.logicalDate, state.tasks) else null
-        return TodayState(today, emptyList()) to record
+        if (state.logicalDate == today) return RolloverResult(state, emptyList(), plans)
+
+        val archived = mutableListOf<DayRecord>()
+        if (state.tasks.isNotEmpty() || state.events.isNotEmpty()) {
+            archived += DayRecord(state.logicalDate, state.tasks, state.events)
+        }
+        // 几天没打开 app：被跳过的日子若有规划，以"全部未完成"归档，不凭空消失
+        plans.filter { it.date > state.logicalDate && it.date < today }
+            .sortedBy { it.date }
+            .forEach { p ->
+                if (p.tasks.isNotEmpty() || p.events.isNotEmpty()) {
+                    archived += DayRecord(
+                        date = p.date,
+                        tasks = p.tasks.map { it.copy(done = false, fromPlan = true) },
+                        events = p.events
+                    )
+                }
+            }
+        // 新今天 = 该日期的规划（可能为空）
+        val todayPlan = plans.find { it.date == today }
+        val newToday = TodayState(
+            logicalDate = today,
+            tasks = todayPlan?.tasks?.map { it.copy(fromPlan = true) } ?: emptyList(),
+            events = todayPlan?.events ?: emptyList()
+        )
+        // 防御性清理：所有 ≤ 今天的规划条目一律移除
+        val remaining = plans.filter { it.date > today }
+        return RolloverResult(newToday, archived, remaining)
     }
 }

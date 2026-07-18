@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tombstatue.dailyplan.ui.CalendarScreen
 import com.tombstatue.dailyplan.ui.HistoryScreen
 import com.tombstatue.dailyplan.ui.PlanViewModel
 import com.tombstatue.dailyplan.ui.TodayScreen
@@ -64,6 +65,13 @@ fun AppRoot() {
                 NavigationBarItem(
                     selected = page == 1,
                     onClick = { page = 1 },
+                    icon = { Text("📅", fontSize = 18.sp) },
+                    label = { Text("日历") },
+                    colors = itemColors
+                )
+                NavigationBarItem(
+                    selected = page == 2,
+                    onClick = { page = 2 },
                     icon = { Text("✓", fontSize = 18.sp) },
                     label = { Text("已完成") },
                     colors = itemColors
@@ -73,6 +81,7 @@ fun AppRoot() {
     ) { padding ->
         when (page) {
             0 -> TodayScreen(vm, padding)
+            1 -> CalendarScreen(vm, padding, onGoToday = { page = 0 })
             else -> HistoryScreen(vm, padding)
         }
     }
