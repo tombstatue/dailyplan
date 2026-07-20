@@ -9,8 +9,10 @@ import com.tombstatue.dailyplan.data.Period
 import com.tombstatue.dailyplan.data.PlanRepository
 import com.tombstatue.dailyplan.data.TodayState
 import com.tombstatue.dailyplan.logic.DayLogic
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -19,6 +21,12 @@ data class UiState(
     val today: TodayState,
     val history: List<DayRecord>,
     val plans: List<DayPlan>
+)
+
+data class BatchResult(
+    val batchId: String,
+    val count: Int,      // 影响的日期数
+    val text: String     // 批量添加的日程文字（用于提示）
 )
 
 class PlanViewModel(app: Application) : AndroidViewModel(app) {
@@ -73,4 +81,24 @@ class PlanViewModel(app: Application) : AndroidViewModel(app) {
     fun deletePlanTask(date: String, id: String) = viewModelScope.launch { repo.deletePlanTask(date, id) }
 
     fun deletePlanEvent(date: String, id: String) = viewModelScope.launch { repo.deletePlanEvent(date, id) }
+
+    // ---------- 批量添加 ----------
+
+    private val _batchResult = MutableStateFlow<BatchResult?>(null)
+    val batchResult: StateFlow<BatchResult?> = _batchResult.asStateFlow()
+
+    fun batchAdd(dates: List<String>, period: Period, text: String) = viewModelScope.launch {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return@launch
+        val bid = repo.batchAdd(dates, period, trimmed)
+        _batchResult.value = BatchResult(bid, dates.size, trimmed)
+    }
+
+    fun undoBatch() {
+        val result = _batchResult.value ?: return
+        viewModelScope.launch { repo.undoBatch(result.batchId) }
+        _batchResult.value = null
+    }
+
+    fun clearBatchResult() { _batchResult.value = null }
 }

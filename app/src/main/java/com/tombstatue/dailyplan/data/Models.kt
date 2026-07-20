@@ -13,7 +13,8 @@ data class Task(
     val period: Period,           // 所属时段
     val done: Boolean,            // 是否已划掉
     val createdAt: Long,          // 创建时间（epoch millis）
-    val fromPlan: Boolean = false // 是否来自提前规划（置顶加粗显示）；默认值保证旧数据兼容
+    val fromPlan: Boolean = false,// 是否来自提前规划（置顶加粗显示）；默认值保证旧数据兼容
+    val batchId: String = ""      // 批量添加时写入的批次 UUID，撤销用；空字符串 = 非批量
 )
 
 /** 重要事件：属于某一天的大事（考试、截止等），无时段 */

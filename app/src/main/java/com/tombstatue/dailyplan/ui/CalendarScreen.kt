@@ -3,6 +3,7 @@ package com.tombstatue.dailyplan.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,9 +16,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,28 +53,64 @@ import java.time.YearMonth
 private val OutMonth = Color(0xFF3A3A4A)
 
 /**
- * 日历页：月视图网格。
- * 点未来/过去日期 → 日详情；点今天 → 切回"今天"标签页。
+ * 日历页：月视图网格 + 批量规划入口。
  */
 @Composable
 fun CalendarScreen(vm: PlanViewModel, padding: PaddingValues, onGoToday: () -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val todayDate = ui.today.logicalDate
     var selectedDate by rememberSaveable { mutableStateOf<String?>(null) }
+    var showBatchSheet by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // 批量操作结果 → Snackbar + 撤销
+    val batchResult by vm.batchResult.collectAsStateWithLifecycle()
+    LaunchedEffect(batchResult) {
+        if (batchResult != null) {
+            val r = batchResult!!
+            val action = snackbarHostState.showSnackbar(
+                message = "已添加「${r.text}」至 ${r.count} 天",
+                actionLabel = "撤销",
+                duration = SnackbarDuration.Indefinite
+            )
+            if (action == SnackbarResult.ActionPerformed) {
+                vm.undoBatch()
+            }
+            // 超时或撤销后清除
+            vm.clearBatchResult()
+        }
+    }
 
     val selected = selectedDate
-    if (selected == null) {
-        MonthGrid(
-            ui = ui,
+    Scaffold(
+        modifier = Modifier.padding(padding),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Color.Transparent
+    ) { innerPadding ->
+        if (selected == null) {
+            MonthGrid(
+                ui = ui,
+                todayDate = todayDate,
+                onBatchClick = { showBatchSheet = true },
+                onSelect = { date ->
+                    if (date == todayDate) onGoToday() else selectedDate = date
+                }
+            )
+        } else {
+            BackHandler { selectedDate = null }
+            DayDetailScreen(vm, ui, selected, innerPadding, onBack = { selectedDate = null })
+        }
+    }
+
+    if (showBatchSheet) {
+        BatchAddSheet(
             todayDate = todayDate,
-            padding = padding,
-            onSelect = { date ->
-                if (date == todayDate) onGoToday() else selectedDate = date
-            }
+            onConfirm = { dates, period, text ->
+                vm.batchAdd(dates, period, text)
+                showBatchSheet = false
+            },
+            onDismiss = { showBatchSheet = false }
         )
-    } else {
-        BackHandler { selectedDate = null } // 系统返回键回到日历网格
-        DayDetailScreen(vm, ui, selected, padding, onBack = { selectedDate = null })
     }
 }
 
@@ -74,13 +118,12 @@ fun CalendarScreen(vm: PlanViewModel, padding: PaddingValues, onGoToday: () -> U
 private fun MonthGrid(
     ui: UiState,
     todayDate: String,
-    padding: PaddingValues,
+    onBatchClick: () -> Unit,
     onSelect: (String) -> Unit
 ) {
-    var month by rememberSaveable { mutableStateOf(todayDate.substring(0, 7)) } // "2026-07"
+    var month by rememberSaveable { mutableStateOf(todayDate.substring(0, 7)) }
     val ym = YearMonth.parse(month)
 
-    // 各日期的事件文字：未来看规划、今天看今日状态、过去看归档
     val eventsByDate = remember(ui) {
         buildMap<String, List<String>> {
             ui.plans.forEach { p -> if (p.events.isNotEmpty()) put(p.date, p.events.map { it.text }) }
@@ -92,7 +135,6 @@ private fun MonthGrid(
     Column(
         Modifier
             .fillMaxSize()
-            .padding(padding)
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
@@ -113,21 +155,24 @@ private fun MonthGrid(
                 Text("›", color = Accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
         }
-        Spacer(Modifier.height(6.dp))
-        // 星期表头，周一起始
+        // 批量规划按钮
+        TextButton(
+            onClick = onBatchClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+        ) {
+            Text("📦 批量规划", color = Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+        Spacer(Modifier.height(4.dp))
+        // 星期表头
         Row {
             listOf("一", "二", "三", "四", "五", "六", "日").forEach { w ->
-                Text(
-                    w,
-                    color = TextDim,
-                    fontSize = 11.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f)
-                )
+                Text(w, color = TextDim, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
             }
         }
         Spacer(Modifier.height(4.dp))
-        // 6 行 × 7 列，首尾用相邻月补齐
+        // 6 行 × 7 列
         val first = ym.atDay(1)
         val start = first.minusDays((first.dayOfWeek.value - 1).toLong())
         val cells = (0 until 42).map { start.plusDays(it.toLong()) }
@@ -147,7 +192,7 @@ private fun MonthGrid(
         }
         Spacer(Modifier.height(10.dp))
         Text(
-            "点日期查看/规划 · 今天会跳回「今天」页",
+            "点日期查看/规划 · 「📦 批量规划」可在多天添加同一日程",
             color = TextDim.copy(alpha = 0.6f),
             fontSize = 11.sp
         )
@@ -186,7 +231,6 @@ private fun DayCell(
                 Modifier.padding(vertical = 1.dp)
             }
         )
-        // 事件文字条（B 方案）：显示第一条，多于一条时显示 +n
         if (events.isNotEmpty()) {
             Text(
                 events.first(),

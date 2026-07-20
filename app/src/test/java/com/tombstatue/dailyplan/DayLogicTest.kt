@@ -170,6 +170,7 @@ class DayLogicTest {
         val oldTask = """{"id":"a","text":"背单词","period":"MORNING","done":true,"createdAt":1}"""
         val t = json.decodeFromString<Task>(oldTask)
         assertFalse(t.fromPlan)
+        assertEquals("", t.batchId)   // v1.2 新增字段，旧数据默认空
 
         val oldToday = """{"logicalDate":"2026-07-18","tasks":[$oldTask]}"""
         val st = json.decodeFromString<TodayState>(oldToday)

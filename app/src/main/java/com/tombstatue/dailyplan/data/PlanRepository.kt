@@ -126,6 +126,45 @@ class PlanRepository(private val context: Context) {
         plans.upsert(date) { it.copy(events = it.events.filterNot { e -> e.id == id }) }
     }
 
+    /**
+     * 批量添加同一条日程到多个日期。
+     * @return 用于撤销的 batchId（UUID）
+     */
+    suspend fun batchAdd(dateRange: Iterable<String>, period: Period, text: String): String {
+        val batchId = UUID.randomUUID().toString()
+        mutatePlans { plans ->
+            var result = plans
+            for (date in dateRange) {
+                result = result.upsert(date) { dp ->
+                    // 跳过完全相同（text+period）的日程
+                    val exists = dp.tasks.any { it.text == text && it.period == period }
+                    if (exists) dp
+                    else dp.copy(tasks = dp.tasks + Task(
+                        id = UUID.randomUUID().toString(),
+                        text = text,
+                        period = period,
+                        done = false,
+                        createdAt = System.currentTimeMillis(),
+                        fromPlan = true,
+                        batchId = batchId
+                    ))
+                }
+            }
+            result
+        }
+        return batchId
+    }
+
+    /** 撤销批量添加：移除所有 batchId 匹配的日程并清理空 DayPlan */
+    suspend fun undoBatch(batchId: String) {
+        mutatePlans { plans ->
+            plans
+                .map { it.copy(tasks = it.tasks.filterNot { t -> t.batchId == batchId }) }
+                .filter { it.tasks.isNotEmpty() || it.events.isNotEmpty() }
+                .sortedBy { it.date }
+        }
+    }
+
     /** 更新某日期的规划；更新后事件与日程都为空的条目自动清除 */
     private fun List<DayPlan>.upsert(date: String, transform: (DayPlan) -> DayPlan): List<DayPlan> {
         val updated = transform(find { it.date == date } ?: DayPlan(date))
