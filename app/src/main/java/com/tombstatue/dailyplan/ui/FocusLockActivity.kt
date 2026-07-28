@@ -45,6 +45,7 @@ class FocusLockActivity : ComponentActivity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // 不隐藏状态栏，允许下拉查看消息通知
 
         setContent {
             DailyPlanTheme {
@@ -71,7 +72,7 @@ class FocusLockActivity : ComponentActivity() {
     // 禁止返回键
     override fun onBackPressed() {}
 
-    // 隐藏状态栏
+    // 保留状态栏（可下拉看消息），仅隐藏导航栏
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
@@ -80,9 +81,7 @@ class FocusLockActivity : ComponentActivity() {
                 android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                     or android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                     or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    or android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                     or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    or android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
                 )
         }
     }
