@@ -1,5 +1,10 @@
 package com.tombstatue.dailyplan.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -37,9 +42,11 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tombstatue.dailyplan.data.Task
@@ -72,6 +79,25 @@ fun PomodoroScreen(padding: PaddingValues, todayVm: PlanViewModel) {
     var pickedMode by remember { mutableStateOf<PomodoroMode?>(null) }
 
     val ringColor = if (s.mode == PomodoroMode.WORK) WorkRed else BreakGreen
+
+    // Android 13+ 通知权限（前台服务必需）
+    val context = LocalContext.current
+    val hasNotificationPermission = if (Build.VERSION.SDK_INT >= 33) {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    } else true
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* granted 时自动走 LaunchedEffect 触发启动，false 时静默失败 */ }
+
+    /** 安全启动：先确保有通知权限再启动前台服务 */
+    fun doStart() {
+        if (Build.VERSION.SDK_INT >= 33 && !hasNotificationPermission) {
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        vm.start()
+    }
 
     Column(
         Modifier
@@ -197,10 +223,9 @@ fun PomodoroScreen(padding: PaddingValues, todayVm: PlanViewModel) {
             Surface(
                 onClick = {
                     if (isFinished) {
-                        // 完成后点按钮 → 重置该模式计时并从头开始
                         vm.reset()
-                        vm.start()
-                    } else if (s.running) vm.pause() else vm.start()
+                        doStart()
+                    } else if (s.running) vm.pause() else doStart()
                 },
                 shape = RoundedCornerShape(12.dp),
                 color = if (s.running) PauseAmber else ringColor
