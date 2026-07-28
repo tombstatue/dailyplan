@@ -19,6 +19,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +44,7 @@ import java.time.LocalDate
 fun HistoryScreen(vm: PlanViewModel, padding: PaddingValues) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val today = ui.today
+    val reversedHistory = remember(ui.history) { ui.history.reversed() }
 
     LazyColumn(
         modifier = Modifier
@@ -75,7 +77,7 @@ fun HistoryScreen(vm: PlanViewModel, padding: PaddingValues) {
                 )
             }
         } else {
-            items(ui.history.reversed(), key = { it.date }) { rec ->
+            items(reversedHistory, key = { it.date }) { rec ->
                 val title =
                     if (isYesterday(rec.date, today.logicalDate)) "${formatChineseDate(rec.date)} · 昨天"
                     else formatChineseDate(rec.date)

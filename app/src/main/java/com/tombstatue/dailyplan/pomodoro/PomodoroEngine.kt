@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.LocalDate
+import com.tombstatue.dailyplan.logic.DayLogic
 
 /**
  * 番茄钟引擎（单例）：持有计时状态，管理倒数协程。
@@ -23,11 +23,11 @@ object PomodoroEngine {
     val state: StateFlow<TimerState> = _state.asStateFlow()
 
     private var tickJob: Job? = null
-    private var lastDate: String = LocalDate.now().toString()
+    private var lastDate: String = DayLogic.logicalDate(System.currentTimeMillis())
 
     /** 启动/恢复计时 */
     fun start() {
-        val today = LocalDate.now().toString()
+        val today = DayLogic.logicalDate(System.currentTimeMillis())
         if (today != lastDate) {
             _state.update { it.copy(sessionsToday = 0, focusSecToday = 0) }
             lastDate = today
@@ -67,11 +67,11 @@ object PomodoroEngine {
     }
 
     private suspend fun tick() {
-        _state.update { s ->
-            if (s.remainingSec <= 1) return@update s
-            s.copy(remainingSec = s.remainingSec - 1)
+        val newRemaining = _state.update { s ->
+            if (s.remainingSec <= 1) return@update s.remainingSec
+            s.copy(remainingSec = s.remainingSec - 1).remainingSec
         }
-        if (_state.value.remainingSec <= 0) {
+        if (newRemaining <= 0) {
             tickJob?.cancel(); tickJob = null
             _state.update { s ->
                 val isWork = s.mode == PomodoroMode.WORK

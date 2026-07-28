@@ -16,7 +16,7 @@ import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
 import com.tombstatue.dailyplan.MainActivity
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,7 +38,7 @@ class PomodoroService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         observeJob?.cancel()
         observeJob = scope.launch {
-            PomodoroEngine.state.collectLatest { s ->
+            PomodoroEngine.state.collect { s ->
                 if (s.running || s.finished) {
                     val n = buildNotification(s)
                     if (Build.VERSION.SDK_INT >= 34) {

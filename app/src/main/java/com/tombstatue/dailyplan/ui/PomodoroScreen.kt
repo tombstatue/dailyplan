@@ -31,7 +31,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -76,7 +75,6 @@ fun PomodoroScreen(padding: PaddingValues, todayVm: PlanViewModel) {
     val ui by todayVm.ui.collectAsStateWithLifecycle()
     var showTaskPicker by remember { mutableStateOf(false) }
     var showTimeDialog by remember { mutableStateOf<PomodoroMode?>(null) }
-    var pickedMode by remember { mutableStateOf<PomodoroMode?>(null) }
 
     val ringColor = if (s.mode == PomodoroMode.WORK) WorkRed else BreakGreen
 
@@ -194,20 +192,13 @@ fun PomodoroScreen(padding: PaddingValues, todayVm: PlanViewModel) {
             PomodoroMode.entries.forEach { mode ->
                 val selected = s.mode == mode && !s.finished
                 Surface(
-                    onClick = {
-                        vm.setMode(mode)
-                        pickedMode = mode
-                    },
                     shape = RoundedCornerShape(10.dp),
                     color = if (selected) ringColor else CardBg,
                     border = if (selected) null else androidx.compose.foundation.BorderStroke(1.dp, CardBorder),
                     modifier = Modifier
                         .weight(1f)
                         .combinedClickable(
-                            onClick = {
-                                vm.setMode(mode)
-                                pickedMode = mode
-                            },
+                            onClick = { vm.setMode(mode) },
                             onLongClick = { showTimeDialog = mode }
                         )
                 ) {

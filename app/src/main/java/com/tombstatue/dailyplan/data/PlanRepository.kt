@@ -24,6 +24,8 @@ data class StoredState(
 /** 本地存储仓库：今天状态 + 历史归档 + 未来规划，全部 JSON 存入 DataStore */
 class PlanRepository(private val context: Context) {
 
+    companion object { private const val TAG = "PlanRepository" }
+
     private val json = Json { ignoreUnknownKeys = true }
     private val keyToday = stringPreferencesKey("today_state")
     private val keyHistory = stringPreferencesKey("history")
@@ -38,15 +40,15 @@ class PlanRepository(private val context: Context) {
     }
 
     private fun decodeToday(raw: String?): TodayState =
-        raw?.let { runCatching { json.decodeFromString<TodayState>(it) }.getOrNull() }
+        raw?.let { runCatching { json.decodeFromString<TodayState>(it) }.onFailure { android.util.Log.e(TAG, "today JSON 解析失败，将重置为空白", it) }.getOrNull() }
             ?: TodayState(DayLogic.logicalDate(System.currentTimeMillis()), emptyList())
 
     private fun decodeHistory(raw: String?): List<DayRecord> =
-        raw?.let { runCatching { json.decodeFromString<List<DayRecord>>(it) }.getOrNull() }
+        raw?.let { runCatching { json.decodeFromString<List<DayRecord>>(it) }.onFailure { android.util.Log.e(TAG, "history JSON 解析失败，将重置为空", it) }.getOrNull() }
             ?: emptyList()
 
     private fun decodePlans(raw: String?): List<DayPlan> =
-        raw?.let { runCatching { json.decodeFromString<List<DayPlan>>(it) }.getOrNull() }
+        raw?.let { runCatching { json.decodeFromString<List<DayPlan>>(it) }.onFailure { android.util.Log.e(TAG, "plans JSON 解析失败，将重置为空", it) }.getOrNull() }
             ?: emptyList()
 
     /** 启动/回前台时调用：跨天则结算（归档 + 并入规划），单事务完成 */
