@@ -41,8 +41,13 @@ class PomodoroViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun start() {
-        PomodoroEngine.start()
-        startService()
+        try {
+            PomodoroEngine.start()
+            startService()
+        } catch (e: Exception) {
+            android.util.Log.e("PomodoroVM", "start() 异常", e)
+            throw e // 重新抛出让 UI 层 try-catch 捕获并弹框
+        }
     }
 
     fun pause() {

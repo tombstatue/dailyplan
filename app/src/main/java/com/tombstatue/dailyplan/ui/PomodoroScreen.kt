@@ -75,6 +75,7 @@ fun PomodoroScreen(padding: PaddingValues, todayVm: PlanViewModel) {
     val ui by todayVm.ui.collectAsStateWithLifecycle()
     var showTaskPicker by remember { mutableStateOf(false) }
     var showTimeDialog by remember { mutableStateOf<PomodoroMode?>(null) }
+    var crashMsg by remember { mutableStateOf<String?>(null) }
 
     val ringColor = if (s.mode == PomodoroMode.WORK) WorkRed else BreakGreen
 
@@ -92,16 +93,22 @@ fun PomodoroScreen(padding: PaddingValues, todayVm: PlanViewModel) {
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         hasNotificationPermission = granted
-        if (granted) vm.start()
+        if (granted) {
+            try { vm.start() } catch (e: Exception) { crashMsg = e.stackTraceToString() }
+        }
     }
 
     /** 安全启动：先确保有通知权限再启动前台服务 */
     fun doStart() {
-        if (Build.VERSION.SDK_INT >= 33 && !hasNotificationPermission) {
-            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            return
+        try {
+            if (Build.VERSION.SDK_INT >= 33 && !hasNotificationPermission) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                return
+            }
+            vm.start()
+        } catch (e: Exception) {
+            crashMsg = e.stackTraceToString()
         }
-        vm.start()
     }
 
     Column(
@@ -328,6 +335,31 @@ fun PomodoroScreen(padding: PaddingValues, todayVm: PlanViewModel) {
             },
             dismissButton = {
                 TextButton(onClick = { showTimeDialog = null }) { Text("取消", color = TextDim) }
+            }
+        )
+    }
+
+    // 崩溃捕获弹窗
+    crashMsg?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { crashMsg = null },
+            containerColor = SheetBg,
+            title = { Text("💥 崩溃详情", color = TextMain, fontSize = 17.sp) },
+            text = {
+                androidx.compose.foundation.lazy.LazyColumn {
+                    item {
+                        Text(
+                            msg,
+                            color = TextDim,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { crashMsg = null }) { Text("关闭", color = Accent) }
             }
         )
     }

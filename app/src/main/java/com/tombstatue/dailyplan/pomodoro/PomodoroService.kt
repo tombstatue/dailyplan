@@ -15,6 +15,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
 import com.tombstatue.dailyplan.MainActivity
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -25,7 +26,10 @@ import kotlinx.coroutines.cancel
 
 class PomodoroService : Service() {
 
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val handler = CoroutineExceptionHandler { _, e ->
+        android.util.Log.e("PomodoroService", "协程异常", e)
+    }
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob() + handler)
     private var observeJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -38,21 +42,29 @@ class PomodoroService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         observeJob?.cancel()
         observeJob = scope.launch {
-            PomodoroEngine.state.collect { s ->
-                if (s.running || s.finished) {
-                    val n = buildNotification(s)
-                    if (Build.VERSION.SDK_INT >= 34) {
-                        startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-                    } else {
-                        startForeground(NOTIF_ID, n)
+            try {
+                PomodoroEngine.state.collect { s ->
+                    if (s.running || s.finished) {
+                        val n = buildNotification(s)
+                        try {
+                            if (Build.VERSION.SDK_INT >= 34) {
+                                startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+                            } else {
+                                startForeground(NOTIF_ID, n)
+                            }
+                        } catch (e: RuntimeException) {
+                            android.util.Log.e("PomodoroService", "startForeground 失败", e)
+                        }
+                        if (s.finished && s.mode == PomodoroMode.WORK) {
+                            vibrate()
+                        }
                     }
-                    if (s.finished && s.mode == PomodoroMode.WORK) {
-                        vibrate()
+                    if (!s.running && !s.finished) {
+                        stopForeground(STOP_FOREGROUND_DETACH)
                     }
                 }
-                if (!s.running && !s.finished) {
-                    stopForeground(STOP_FOREGROUND_DETACH)
-                }
+            } catch (e: Exception) {
+                android.util.Log.e("PomodoroService", "状态收集异常", e)
             }
         }
         return START_NOT_STICKY
