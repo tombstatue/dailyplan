@@ -67,11 +67,11 @@ object PomodoroEngine {
     }
 
     private suspend fun tick() {
-        val snapshot = _state.update { s ->
+        _state.update { s ->
             if (s.remainingSec > 0) s.copy(remainingSec = s.remainingSec - 1)
             else s
         }
-        if (snapshot.remainingSec <= 0) {
+        if (_state.value.remainingSec <= 0) {
             tickJob?.cancel(); tickJob = null
             _state.update { s ->
                 val isWork = s.mode == PomodoroMode.WORK
