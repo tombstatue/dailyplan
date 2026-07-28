@@ -22,6 +22,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.FocusLockActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance" />
+
         <service
             android:name=".pomodoro.PomodoroService"
             android:foregroundServiceType="specialUse"

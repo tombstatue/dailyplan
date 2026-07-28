@@ -44,9 +44,9 @@ class PomodoroViewModel(app: Application) : AndroidViewModel(app) {
         try {
             PomodoroEngine.start()
             startService()
+            launchLockScreen()
         } catch (e: Exception) {
             android.util.Log.e("PomodoroVM", "start() 异常", e)
-            throw e // 重新抛出让 UI 层 try-catch 捕获并弹框
         }
     }
 
@@ -77,6 +77,19 @@ class PomodoroViewModel(app: Application) : AndroidViewModel(app) {
             ctx.startForegroundService(Intent(ctx, PomodoroService::class.java))
         } catch (e: Exception) {
             android.util.Log.e("PomodoroVM", "启动前台服务失败", e)
+        }
+    }
+
+    private fun launchLockScreen() {
+        try {
+            val ctx = getApplication<Application>()
+            ctx.startActivity(
+                Intent(ctx, FocusLockActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("PomodoroVM", "启动锁屏失败", e)
         }
     }
 
