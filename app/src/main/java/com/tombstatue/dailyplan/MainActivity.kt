@@ -1,5 +1,6 @@
 package com.tombstatue.dailyplan
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,6 +22,8 @@ import com.tombstatue.dailyplan.data.Task
 import com.tombstatue.dailyplan.ui.CalendarScreen
 import com.tombstatue.dailyplan.ui.HistoryScreen
 import com.tombstatue.dailyplan.ui.PlanViewModel
+import com.tombstatue.dailyplan.pomodoro.PomodoroEngine
+import com.tombstatue.dailyplan.ui.FocusLockActivity
 import com.tombstatue.dailyplan.ui.PomodoroScreen
 import com.tombstatue.dailyplan.ui.PomodoroViewModel
 import com.tombstatue.dailyplan.ui.TodayScreen
@@ -35,6 +38,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             DailyPlanTheme { AppRoot() }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 番茄钟运行中 → 重新弹出锁屏（防止用户按 Home 键绕过）
+        if (PomodoroEngine.state.value.running) {
+            startActivity(
+                Intent(this, FocusLockActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                }
+            )
         }
     }
 }
