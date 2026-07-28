@@ -53,6 +53,21 @@ class FocusLockActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 屏幕固定：阻止 Home 键 / 手势返回桌面
+        try {
+            startLockTask()
+        } catch (_: SecurityException) {
+            // 屏幕固定未启用，fallback 到 MainActivity.onResume 重检测机制
+        }
+    }
+
+    override fun finish() {
+        try { stopLockTask() } catch (_: Exception) {}
+        super.finish()
+    }
+
     // 禁止返回键
     override fun onBackPressed() {}
 
