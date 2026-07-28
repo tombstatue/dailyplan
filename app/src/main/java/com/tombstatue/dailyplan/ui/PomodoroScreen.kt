@@ -61,6 +61,7 @@ private val BreakGreen = Color(0xFF4ECCA3)
 private val PauseAmber = Color(0xFFF0A500)
 private val RingBg = Color(0xFF2A2A3A)
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PomodoroScreen(padding: PaddingValues, todayVm: PlanViewModel) {
     val vm: PomodoroViewModel = viewModel()

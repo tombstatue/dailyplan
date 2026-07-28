@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.tombstatue.dailyplan.data.Task
 import com.tombstatue.dailyplan.pomodoro.PomodoroEngine
 import com.tombstatue.dailyplan.pomodoro.PomodoroMode

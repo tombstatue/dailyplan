@@ -31,7 +31,7 @@ class PomodoroService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        createChannel()
+        createChannel(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
