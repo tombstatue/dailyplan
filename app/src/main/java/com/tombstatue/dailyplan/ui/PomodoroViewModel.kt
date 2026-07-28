@@ -66,16 +66,24 @@ class PomodoroViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun startService() {
-        val ctx = getApplication<Application>()
-        PomodoroService.createChannelStatic(ctx)
-        ctx.startForegroundService(Intent(ctx, PomodoroService::class.java))
+        try {
+            val ctx = getApplication<Application>()
+            PomodoroService.createChannelStatic(ctx)
+            ctx.startForegroundService(Intent(ctx, PomodoroService::class.java))
+        } catch (e: Exception) {
+            android.util.Log.e("PomodoroVM", "启动前台服务失败", e)
+        }
     }
 
     private fun stopServiceIfIdle() {
-        if (!PomodoroEngine.state.value.running) {
-            getApplication<Application>().stopService(
-                Intent(getApplication(), PomodoroService::class.java)
-            )
+        try {
+            if (!PomodoroEngine.state.value.running) {
+                getApplication<Application>().stopService(
+                    Intent(getApplication(), PomodoroService::class.java)
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PomodoroVM", "停止服务失败", e)
         }
     }
 }

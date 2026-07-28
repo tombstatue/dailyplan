@@ -82,13 +82,20 @@ fun PomodoroScreen(padding: PaddingValues, todayVm: PlanViewModel) {
 
     // Android 13+ 通知权限（前台服务必需）
     val context = LocalContext.current
-    val hasNotificationPermission = if (Build.VERSION.SDK_INT >= 33) {
-        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-    } else true
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= 33) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            } else true
+        )
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { /* granted 时自动走 LaunchedEffect 触发启动，false 时静默失败 */ }
+    ) { granted ->
+        hasNotificationPermission = granted
+        if (granted) vm.start()
+    }
 
     /** 安全启动：先确保有通知权限再启动前台服务 */
     fun doStart() {

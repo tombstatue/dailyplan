@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.VibrationEffect
@@ -24,7 +25,7 @@ import kotlinx.coroutines.cancel
 
 class PomodoroService : Service() {
 
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var observeJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -40,13 +41,16 @@ class PomodoroService : Service() {
             PomodoroEngine.state.collectLatest { s ->
                 if (s.running || s.finished) {
                     val n = buildNotification(s)
-                    startForeground(NOTIF_ID, n)
+                    if (Build.VERSION.SDK_INT >= 34) {
+                        startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+                    } else {
+                        startForeground(NOTIF_ID, n)
+                    }
                     if (s.finished && s.mode == PomodoroMode.WORK) {
                         vibrate()
                     }
                 }
                 if (!s.running && !s.finished) {
-                    // 用户暂停——移除前台但保留服务
                     stopForeground(STOP_FOREGROUND_DETACH)
                 }
             }
