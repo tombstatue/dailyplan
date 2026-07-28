@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
@@ -36,6 +37,7 @@ import com.tombstatue.dailyplan.ui.theme.Accent
 import com.tombstatue.dailyplan.ui.theme.AllDoneGreen
 import com.tombstatue.dailyplan.ui.theme.CardBg
 import com.tombstatue.dailyplan.ui.theme.CardBorder
+import com.tombstatue.dailyplan.ui.theme.SheetBg
 import com.tombstatue.dailyplan.ui.theme.TextDim
 import com.tombstatue.dailyplan.ui.theme.TextMain
 import com.tombstatue.dailyplan.ui.theme.TextStruck
@@ -53,11 +55,11 @@ fun formatChineseDate(isoDate: String): String {
 }
 
 @Composable
-fun TodayScreen(vm: PlanViewModel, padding: PaddingValues) {
+fun TodayScreen(vm: PlanViewModel, padding: PaddingValues, onStartPomodoro: (Task) -> Unit = {}) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val today = ui.today
     var addTarget by remember { mutableStateOf<Period?>(null) }   // 弹层要添加到哪个板块
-    var deleteTarget by remember { mutableStateOf<Task?>(null) }  // 长按待删除的任务
+    var actionTask by remember { mutableStateOf<Task?>(null) }    // 长按待操作的任务
 
     LazyColumn(
         modifier = Modifier
@@ -99,7 +101,7 @@ fun TodayScreen(vm: PlanViewModel, padding: PaddingValues) {
                     tasks = today.tasks.filter { it.period == period },
                     onAdd = { addTarget = period },
                     onToggle = vm::toggle,
-                    onLongPress = { deleteTarget = it }
+                    onLongPress = { actionTask = it }
                 )
                 Spacer(Modifier.height(12.dp))
             }
@@ -117,15 +119,33 @@ fun TodayScreen(vm: PlanViewModel, padding: PaddingValues) {
         )
     }
 
-    deleteTarget?.let { task ->
-        ConfirmDeleteDialog(
-            title = "删除这条计划？",
-            content = task.text,
-            onConfirm = {
-                vm.delete(task.id)
-                deleteTarget = null
+    actionTask?.let { task ->
+        AlertDialog(
+            onDismissRequest = { actionTask = null },
+            containerColor = SheetBg,
+            title = { Text(task.text, color = TextMain, fontSize = 16.sp) },
+            text = {
+                Column {
+                    if (!task.done) {
+                        TextButton(
+                            onClick = {
+                                onStartPomodoro(task)
+                                actionTask = null
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("🍅 开始专注", color = Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
+                    }
+                    TextButton(
+                        onClick = {
+                            vm.delete(task.id)
+                            actionTask = null
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("删除", color = UndoneRed, fontSize = 15.sp) }
+                }
             },
-            onDismiss = { deleteTarget = null }
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { actionTask = null }) { Text("取消", color = TextDim) } }
         )
     }
 }

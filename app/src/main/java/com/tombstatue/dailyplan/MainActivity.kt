@@ -17,9 +17,12 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tombstatue.dailyplan.data.Task
 import com.tombstatue.dailyplan.ui.CalendarScreen
 import com.tombstatue.dailyplan.ui.HistoryScreen
 import com.tombstatue.dailyplan.ui.PlanViewModel
+import com.tombstatue.dailyplan.ui.PomodoroScreen
+import com.tombstatue.dailyplan.ui.PomodoroViewModel
 import com.tombstatue.dailyplan.ui.TodayScreen
 import com.tombstatue.dailyplan.ui.theme.Accent
 import com.tombstatue.dailyplan.ui.theme.Bg
@@ -39,7 +42,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppRoot() {
     val vm: PlanViewModel = viewModel()
-    // 每次回到前台检查是否跨天（设计文档 §7）
+    val pomoVm: PomodoroViewModel = viewModel()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.checkRollover() }
 
     var page by rememberSaveable { mutableIntStateOf(0) }
@@ -72,6 +75,13 @@ fun AppRoot() {
                 NavigationBarItem(
                     selected = page == 2,
                     onClick = { page = 2 },
+                    icon = { Text("🍅", fontSize = 18.sp) },
+                    label = { Text("番茄") },
+                    colors = itemColors
+                )
+                NavigationBarItem(
+                    selected = page == 3,
+                    onClick = { page = 3 },
                     icon = { Text("✓", fontSize = 18.sp) },
                     label = { Text("已完成") },
                     colors = itemColors
@@ -80,8 +90,16 @@ fun AppRoot() {
         }
     ) { padding ->
         when (page) {
-            0 -> TodayScreen(vm, padding)
+            0 -> TodayScreen(
+                vm = vm,
+                padding = padding,
+                onStartPomodoro = { task ->
+                    pomoVm.bindTask(task)
+                    page = 2  // 跳转到番茄钟
+                }
+            )
             1 -> CalendarScreen(vm, padding, onGoToday = { page = 0 })
+            2 -> PomodoroScreen(padding, todayVm = vm)
             else -> HistoryScreen(vm, padding)
         }
     }
