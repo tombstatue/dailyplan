@@ -50,16 +50,9 @@ class FocusLockActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 在锁屏上方显示
-        if (android.os.Build.VERSION.SDK_INT >= 27) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-        } else {
-            @Suppress("DEPRECATION")
-            window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
-        }
+        // 不叠加在系统锁屏上、不屏幕固定：否则启动白名单应用会被系统要求先解锁/解除固定。
+        // 防绕过由 UsageWatcher（前台应用监测）负责：打开非白名单应用会自动拉回本页。
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        // 不隐藏状态栏，允许下拉查看消息通知
 
         setContent {
             var focusBg by remember { mutableStateOf<String?>(null) }
@@ -70,21 +63,6 @@ class FocusLockActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // 屏幕固定：阻止 Home 键 / 手势返回桌面
-        try {
-            startLockTask()
-        } catch (_: SecurityException) {
-            // 屏幕固定未启用，fallback 到 MainActivity.onResume 重检测机制
-        }
-    }
-
-    override fun finish() {
-        try { stopLockTask() } catch (_: Exception) {}
-        super.finish()
     }
 
     // 禁止返回键
@@ -243,7 +221,6 @@ private fun FocusLockScreen(onFinish: () -> Unit) {
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(12.dp))
                                     .clickable {
-                                        (context as? ComponentActivity)?.stopLockTask()
                                         val launch = context.packageManager.getLaunchIntentForPackage(app.pkg)
                                         if (launch != null) {
                                             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
