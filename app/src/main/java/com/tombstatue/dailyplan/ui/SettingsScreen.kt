@@ -5,8 +5,12 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,7 +31,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tombstatue.dailyplan.pomodoro.AppUsageWatcher
 import com.tombstatue.dailyplan.pomodoro.SettingsStore
 import com.tombstatue.dailyplan.ui.theme.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsScreen(padding: PaddingValues) {
@@ -62,7 +68,93 @@ fun SettingsScreen(padding: PaddingValues) {
 
         item {
             SectionCard("🎨 主题") {
-                Text("主题切换将在 v1.4 主题系统接入后生效", color = TextDim, fontSize = 13.sp)
+                var themeId by remember { mutableStateOf(ThemeHolder.ID_NIGHT) }
+                LaunchedEffect(Unit) { themeId = SettingsStore.themeId() }
+
+                val pickCustom = rememberLauncherForActivityResult(
+                    ActivityResultContracts.PickVisualMedia()
+                ) { uri ->
+                    uri?.let {
+                        scope.launch {
+                            val path = copyUriToFile(context, it, "custom_bg.jpg")
+                            if (path != null) {
+                                ThemeCustomizer.buildCustomTheme(path)?.let { spec ->
+                                    ThemeHolder.setCustom(spec)
+                                    SettingsStore.setCustomBgPath(path)
+                                }
+                                SettingsStore.setThemeId(ThemeHolder.ID_CUSTOM)
+                                themeId = ThemeHolder.ID_CUSTOM
+                            }
+                        }
+                    }
+                }
+                val pickFocus = rememberLauncherForActivityResult(
+                    ActivityResultContracts.PickVisualMedia()
+                ) { uri ->
+                    uri?.let {
+                        scope.launch {
+                            copyUriToFile(context, it, "focus_bg.jpg")?.let { p ->
+                                SettingsStore.setFocusBgPath(p)
+                            }
+                        }
+                    }
+                }
+
+                fun pickTheme(id: String) {
+                    ThemeHolder.apply(id)
+                    scope.launch { SettingsStore.setThemeId(id) }
+                    themeId = id
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ThemeChip("夜间紫", ThemeHolder.NIGHT.bg, ThemeHolder.NIGHT.textMain, ThemeHolder.NIGHT.accent, themeId == ThemeHolder.ID_NIGHT) {
+                        pickTheme(ThemeHolder.ID_NIGHT)
+                    }
+                    ThemeChip("浅色清新", ThemeHolder.FRESH.bg, ThemeHolder.FRESH.textMain, ThemeHolder.FRESH.accent, themeId == ThemeHolder.ID_FRESH) {
+                        pickTheme(ThemeHolder.ID_FRESH)
+                    }
+                    ThemeChip("冷蓝静谧", ThemeHolder.CALM.bg, ThemeHolder.CALM.textMain, ThemeHolder.CALM.accent, themeId == ThemeHolder.ID_CALM) {
+                        pickTheme(ThemeHolder.ID_CALM)
+                    }
+                    ThemeChip(
+                        "自定义🌈", ThemeHolder.NIGHT.bg, ThemeHolder.NIGHT.textMain, ThemeHolder.NIGHT.accent,
+                        themeId == ThemeHolder.ID_CUSTOM
+                    ) {
+                        pickCustom.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "自定义主题：上传一张图片作为全局背景，文字颜色会按图片亮度自动深浅适配。",
+                    color = TextDim, fontSize = 11.sp
+                )
+                if (themeId == ThemeHolder.ID_CUSTOM) {
+                    Spacer(Modifier.height(6.dp))
+                    TextButton(onClick = {
+                        pickCustom.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }) { Text("更换图片", color = Accent, fontSize = 12.sp) }
+                }
+
+                Spacer(Modifier.height(4.dp))
+                HorizontalDivider(color = CardBorder, thickness = 0.5.dp)
+                Spacer(Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("专注页背景", color = TextMain, fontSize = 13.sp)
+                        Text("不设置则跟随全局主题", color = TextDim, fontSize = 11.sp)
+                    }
+                    TextButton(onClick = {
+                        pickFocus.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }) { Text("上传图片", color = Accent, fontSize = 12.sp) }
+                    TextButton(onClick = {
+                        scope.launch { SettingsStore.setFocusBgPath(null) }
+                    }) { Text("跟随全局", color = TextDim, fontSize = 12.sp) }
+                }
             }
         }
 
@@ -200,6 +292,55 @@ private fun PermissionRow(label: String, granted: Boolean, onGrant: () -> Unit) 
 }
 
 private data class InstalledApp(val pkg: String, val label: String, val drawable: Drawable?)
+
+@Composable
+private fun ThemeChip(
+    label: String,
+    previewBg: androidx.compose.ui.graphics.Color,
+    previewText: androidx.compose.ui.graphics.Color,
+    previewAccent: androidx.compose.ui.graphics.Color,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp, horizontal = 8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .background(previewBg)
+                .then(
+                    if (selected) Modifier.border(2.dp, previewAccent, RoundedCornerShape(9.dp))
+                    else Modifier
+                )
+        ) {
+            Text("字", color = previewText, fontSize = 11.sp, modifier = Modifier.align(Alignment.Center))
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            label,
+            color = if (selected) Accent else TextDim,
+            fontSize = 10.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+        )
+    }
+}
+
+private suspend fun copyUriToFile(context: android.content.Context, uri: android.net.Uri, name: String): String? =
+    withContext(Dispatchers.IO) {
+        runCatching {
+            val f = java.io.File(context.filesDir, name)
+            context.contentResolver.openInputStream(uri)?.use { ins ->
+                f.outputStream().use { ins.copyTo(it) }
+            }
+            f.absolutePath
+        }.getOrNull()
+    }
 
 private fun loadInstalledApps(context: android.content.Context): List<InstalledApp> {
     val pm = context.packageManager

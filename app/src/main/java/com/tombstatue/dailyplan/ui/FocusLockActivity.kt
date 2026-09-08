@@ -62,8 +62,12 @@ class FocusLockActivity : ComponentActivity() {
         // 不隐藏状态栏，允许下拉查看消息通知
 
         setContent {
-            DailyPlanTheme {
-                FocusLockScreen(onFinish = { finish() })
+            var focusBg by remember { mutableStateOf<String?>(null) }
+            LaunchedEffect(Unit) { focusBg = SettingsStore.focusBgPath() }
+            ThemeBackdrop(bgPath = focusBg) {
+                DailyPlanTheme {
+                    FocusLockScreen(onFinish = { finish() })
+                }
             }
         }
     }
@@ -151,7 +155,7 @@ private fun FocusLockScreen(onFinish: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0D0D15))
+            .background(Bg)
     ) {
         Column(
             modifier = Modifier
