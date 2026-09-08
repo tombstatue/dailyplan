@@ -45,7 +45,9 @@ object SettingsStore {
     }
 
     suspend fun setCustomBgPath(path: String?) {
-        appContext?.dataStore?.edit { it[keyCustomBg] = path }
+        appContext?.dataStore?.edit {
+            if (path != null) it[keyCustomBg] = path else it.remove(keyCustomBg)
+        }
     }
 
     suspend fun focusBgPath(): String? {
@@ -54,7 +56,9 @@ object SettingsStore {
     }
 
     suspend fun setFocusBgPath(path: String?) {
-        appContext?.dataStore?.edit { it[keyFocusBg] = path }
+        appContext?.dataStore?.edit {
+            if (path != null) it[keyFocusBg] = path else it.remove(keyFocusBg)
+        }
     }
 
     suspend fun forceExitCode(): Boolean {

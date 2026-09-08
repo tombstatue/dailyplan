@@ -206,12 +206,12 @@ private fun loadInstalledApps(context: android.content.Context): List<InstalledA
     return runCatching {
         val myPkg = context.packageName
         pm.getInstalledApplications(PackageManager.MATCH_ALL).asSequence()
-            .filter { !it.pkgName.startsWith("com.android") && it.pkgName != myPkg }
+            .filter { !it.packageName.startsWith("com.android") && it.packageName != myPkg }
             .filter { (it.flags and ApplicationInfo.FLAG_SYSTEM) == 0 }
             .sortedBy { pm.getApplicationLabel(it).toString() }
             .map { info ->
                 InstalledApp(
-                    pkg = info.pkgName,
+                    pkg = info.packageName,
                     label = pm.getApplicationLabel(info).toString(),
                     drawable = pm.getApplicationIcon(info)
                 )

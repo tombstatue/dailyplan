@@ -19,7 +19,7 @@ object PomodoroAlarm {
     private const val ACTION_FINISH = "com.tombstatue.dailyplan.POMODORO_FINISH"
     private const val REQUEST_CODE = 42
     const val CHANNEL_ID = "pomodoro_finish"
-    private const val NOTIF_ID = 1002
+    const val NOTIF_ID = 1002
 
     fun schedule(context: Context, endAtMillis: Long) {
         val am = context.getSystemService(AlarmManager::class.java)
