@@ -14,8 +14,6 @@ object SettingsStore {
     private val Context.dataStore by preferencesDataStore(name = "dailyplan_settings")
     private val keyWhitelist = stringSetPreferencesKey("whitelist")
     private val keyTheme = stringPreferencesKey("theme_id")
-    private val keyCustomBg = stringPreferencesKey("custom_bg_path")
-    private val keyFocusBg = stringPreferencesKey("focus_bg_path")
     private val keyForceCode = booleanPreferencesKey("force_exit_code")
 
     @Volatile private var appContext: Context? = null
@@ -37,28 +35,6 @@ object SettingsStore {
 
     suspend fun setThemeId(id: String) {
         appContext?.dataStore?.edit { it[keyTheme] = id }
-    }
-
-    suspend fun customBgPath(): String? {
-        val ctx = appContext ?: return null
-        return ctx.dataStore.data.first()[keyCustomBg]
-    }
-
-    suspend fun setCustomBgPath(path: String?) {
-        appContext?.dataStore?.edit {
-            if (path != null) it[keyCustomBg] = path else it.remove(keyCustomBg)
-        }
-    }
-
-    suspend fun focusBgPath(): String? {
-        val ctx = appContext ?: return null
-        return ctx.dataStore.data.first()[keyFocusBg]
-    }
-
-    suspend fun setFocusBgPath(path: String?) {
-        appContext?.dataStore?.edit {
-            if (path != null) it[keyFocusBg] = path else it.remove(keyFocusBg)
-        }
     }
 
     suspend fun forceExitCode(): Boolean {

@@ -28,9 +28,7 @@ data class ThemeSpec(
     val undoneBg: Color,
     val allDoneGreen: Color,
     val sheetBg: Color,
-    val label: String,
-    val customBgPath: String? = null,
-    val scrimAlpha: Float = 0f
+    val label: String
 )
 
 object ThemeHolder {
@@ -38,7 +36,6 @@ object ThemeHolder {
     const val ID_NIGHT = "night"
     const val ID_FRESH = "fresh"
     const val ID_CALM = "calm"
-    const val ID_CUSTOM = "custom"
 
     val NIGHT = ThemeSpec(
         id = ID_NIGHT,
@@ -102,11 +99,6 @@ object ThemeHolder {
         ID_FRESH -> FRESH
         ID_CALM -> CALM
         else -> NIGHT
-    }
-
-    /** 自定义图片主题：由图片分析（亮度/Palette）构建后调用 */
-    fun setCustom(spec: ThemeSpec) {
-        _current.value = spec
     }
 }
 

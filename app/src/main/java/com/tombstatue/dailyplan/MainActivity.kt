@@ -33,9 +33,7 @@ import com.tombstatue.dailyplan.ui.theme.Bg
 import com.tombstatue.dailyplan.ui.theme.CardBg
 import com.tombstatue.dailyplan.ui.theme.DailyPlanTheme
 import com.tombstatue.dailyplan.ui.theme.TextDim
-import com.tombstatue.dailyplan.ui.theme.ThemeBackdrop
 import com.tombstatue.dailyplan.ui.theme.ThemeHolder
-import com.tombstatue.dailyplan.ui.theme.ThemeCustomizer
 import com.tombstatue.dailyplan.pomodoro.SettingsStore
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -44,16 +42,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         SettingsStore.init(applicationContext)
-        lifecycleScope.launch {
-            ThemeHolder.apply(SettingsStore.themeId())
-            SettingsStore.customBgPath()?.let { path ->
-                ThemeCustomizer.buildCustomTheme(path)?.let { ThemeHolder.setCustom(it) }
-            }
-        }
+        lifecycleScope.launch { ThemeHolder.apply(SettingsStore.themeId()) }
         setContent {
-            ThemeBackdrop {
-                DailyPlanTheme { AppRoot() }
-            }
+            DailyPlanTheme { AppRoot() }
         }
     }
 

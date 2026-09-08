@@ -55,12 +55,8 @@ class FocusLockActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         setContent {
-            var focusBg by remember { mutableStateOf<String?>(null) }
-            LaunchedEffect(Unit) { focusBg = SettingsStore.focusBgPath() }
-            ThemeBackdrop(bgPath = focusBg) {
-                DailyPlanTheme {
-                    FocusLockScreen(onFinish = { finish() })
-                }
+            DailyPlanTheme {
+                FocusLockScreen(onFinish = { finish() })
             }
         }
     }

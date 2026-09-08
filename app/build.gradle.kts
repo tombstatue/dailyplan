@@ -15,7 +15,7 @@ android {
         targetSdk = 34
         // CI 中用构建序号作为版本号，保证每次更新都能覆盖安装
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
-        versionName = "1.4"
+        versionName = "1.4.1"
     }
 
     signingConfigs {
@@ -63,7 +63,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
-    implementation("androidx.palette:palette-ktx:1.0.0")
 
     testImplementation("junit:junit:4.13.2")
 }
