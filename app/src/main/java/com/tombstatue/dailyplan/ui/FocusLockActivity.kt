@@ -50,8 +50,8 @@ class FocusLockActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 不叠加在系统锁屏上、不屏幕固定：否则启动白名单应用会被系统要求先解锁/解除固定。
-        // 防绕过由 UsageWatcher（前台应用监测）负责：打开非白名单应用会自动拉回本页。
+        // 不叠加在系统锁屏上（setShowWhenLocked 会让启动白名单应用时被要求先解锁）。
+        // 屏幕固定负责防 Home/返回绕过；白名单图标点击时临时解除固定再启动应用。
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         setContent {
@@ -63,6 +63,21 @@ class FocusLockActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 屏幕固定：阻止 Home 键 / 手势返回桌面；从白名单应用返回时重新固定
+        try {
+            startLockTask()
+        } catch (_: SecurityException) {
+            // 屏幕固定未启用，fallback 到 MainActivity.onResume 重检测机制
+        }
+    }
+
+    override fun finish() {
+        try { stopLockTask() } catch (_: Exception) {}
+        super.finish()
     }
 
     // 禁止返回键
@@ -221,6 +236,8 @@ private fun FocusLockScreen(onFinish: () -> Unit) {
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(12.dp))
                                     .clickable {
+                                        // 先解除固定再启动：固定状态下系统会拦截其他应用
+                                        (context as? ComponentActivity)?.stopLockTask()
                                         val launch = context.packageManager.getLaunchIntentForPackage(app.pkg)
                                         if (launch != null) {
                                             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
