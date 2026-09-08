@@ -1,19 +1,32 @@
 package com.tombstatue.dailyplan.ui
 
 import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.graphics.drawable.toBitmap
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -24,12 +37,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tombstatue.dailyplan.pomodoro.PomodoroEngine
 import com.tombstatue.dailyplan.pomodoro.PomodoroMode
 import com.tombstatue.dailyplan.pomodoro.PomodoroService
+import com.tombstatue.dailyplan.pomodoro.SettingsStore
 import com.tombstatue.dailyplan.ui.theme.*
 import kotlinx.coroutines.delay
 
 /**
- * 专注锁屏：计时期间全屏覆盖，退出需要输入 20 位随机验证码。
- * 无法复制验证码，必须手动输入正确才能解锁。
+ * 专注页：计时期间全屏。白名单应用可一键打开；
+ * 退出专注按设置开关决定是否输入 20 位随机验证码（默认关闭）。
  */
 class FocusLockActivity : ComponentActivity() {
 
@@ -87,14 +101,38 @@ class FocusLockActivity : ComponentActivity() {
     }
 }
 
+/** 白名单应用信息（图标+名称） */
+private data class WhitelistApp(val pkg: String, val label: String, val icon: Drawable?)
+
+private suspend fun loadWhitelistApps(context: Context): List<WhitelistApp> {
+    val pkgs = SettingsStore.whitelist()
+    if (pkgs.isEmpty()) return emptyList()
+    val pm = context.packageManager
+    return pkgs.mapNotNull { pkg ->
+        runCatching {
+            val info = pm.getApplicationInfo(pkg, 0)
+            WhitelistApp(pkg, pm.getApplicationLabel(info).toString(), pm.getApplicationIcon(info))
+        }.getOrNull()
+    }
+}
+
 @Composable
 private fun FocusLockScreen(onFinish: () -> Unit) {
     val s by PomodoroEngine.state.collectAsStateWithLifecycle()
     var showExitDialog by remember { mutableStateOf(false) }
+    var showExitConfirm by remember { mutableStateOf(false) }
     var unlockCode by remember { mutableStateOf("") }
     var userInput by remember { mutableStateOf("") }
     var inputError by remember { mutableStateOf(false) }
     var showCompletion by remember { mutableStateOf(false) }
+    var forceCode by remember { mutableStateOf(false) }
+    var whitelistApps by remember { mutableStateOf<List<WhitelistApp>>(emptyList()) }
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        forceCode = SettingsStore.forceExitCode()
+        whitelistApps = loadWhitelistApps(context)
+    }
 
     // 监听状态变化：暂停 → 解除锁屏；完成 → 展示完成页后解除
     LaunchedEffect(s.running, s.finished) {
@@ -119,11 +157,11 @@ private fun FocusLockScreen(onFinish: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (showCompletion) {
                 // 完成页面
+                Spacer(Modifier.weight(1f))
                 Text("🎉", fontSize = 56.sp)
                 Spacer(Modifier.height(16.dp))
                 Text(
@@ -155,8 +193,10 @@ private fun FocusLockScreen(onFinish: () -> Unit) {
                         Text("完成", color = TextDim, fontSize = 11.sp)
                     }
                 }
+                Spacer(Modifier.weight(1.2f))
             } else {
                 // 计时页面
+                Spacer(Modifier.weight(0.6f))
                 Text("🔒", fontSize = 48.sp)
                 Spacer(Modifier.height(16.dp))
                 Text("专注中", color = TextDim, fontSize = 14.sp)
@@ -175,7 +215,7 @@ private fun FocusLockScreen(onFinish: () -> Unit) {
                     Spacer(Modifier.height(24.dp))
                     Surface(
                         color = CardBg,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
                             "📋 ${s.boundTaskText}",
@@ -186,7 +226,46 @@ private fun FocusLockScreen(onFinish: () -> Unit) {
                     }
                 }
 
-                Spacer(Modifier.height(48.dp))
+                Spacer(Modifier.height(32.dp))
+
+                // 白名单应用入口
+                if (whitelistApps.isNotEmpty()) {
+                    Text("白名单应用", color = TextDim, fontSize = 12.sp)
+                    Spacer(Modifier.height(8.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        items(whitelistApps) { app ->
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        (context as? ComponentActivity)?.stopLockTask()
+                                        val launch = context.packageManager.getLaunchIntentForPackage(app.pkg)
+                                        if (launch != null) {
+                                            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            context.startActivity(launch)
+                                        }
+                                    }
+                                    .padding(4.dp)
+                            ) {
+                                val bmp = app.icon?.let {
+                                    it.toBitmap(48, 48).asImageBitmap()
+                                }
+                                if (bmp != null) {
+                                    Image(
+                                        bitmap = bmp,
+                                        contentDescription = app.label,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                }
+                                Spacer(Modifier.height(4.dp))
+                                Text(app.label, color = TextDim, fontSize = 11.sp, maxLines = 1)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(24.dp))
+                }
+
                 Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
@@ -212,10 +291,14 @@ private fun FocusLockScreen(onFinish: () -> Unit) {
 
                 Button(
                     onClick = {
-                        unlockCode = generateUnlockCode()
-                        userInput = ""
-                        inputError = false
-                        showExitDialog = true
+                        if (forceCode) {
+                            unlockCode = generateUnlockCode()
+                            userInput = ""
+                            inputError = false
+                            showExitDialog = true
+                        } else {
+                            showExitConfirm = true
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = CardBg),
                     modifier = Modifier.fillMaxWidth(0.7f)
@@ -229,11 +312,41 @@ private fun FocusLockScreen(onFinish: () -> Unit) {
                     color = TextDim.copy(alpha = 0.5f),
                     fontSize = 12.sp
                 )
+                Spacer(Modifier.weight(1.2f))
             }
         }
     }
 
-    // 退出验证弹窗
+    // 简单确认退出（验证码开关关闭时）
+    if (showExitConfirm) {
+        AlertDialog(
+            onDismissRequest = { showExitConfirm = false },
+            containerColor = SheetBg,
+            title = {
+                Text("中断专注？", color = TextMain, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            },
+            text = { Text("退出后计时将暂停并保留剩余时间，可随时继续。", color = TextDim, fontSize = 13.sp) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showExitConfirm = false
+                        PomodoroEngine.pause()
+                        onFinish()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ringColor)
+                ) {
+                    Text("确认退出", color = Color.White, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitConfirm = false }) {
+                    Text("继续专注", color = TextDim)
+                }
+            }
+        )
+    }
+
+    // 验证码退出弹窗（开关打开时）
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },

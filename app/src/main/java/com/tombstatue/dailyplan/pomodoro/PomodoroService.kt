@@ -37,6 +37,8 @@ class PomodoroService : Service() {
     override fun onCreate() {
         super.onCreate()
         createChannel(this)
+        // 恢复计时状态（进程被系统清理后由 START_STICKY 重拉本服务）
+        scope.launch { PomodoroEngine.hydrate(this@PomodoroService) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -44,6 +46,11 @@ class PomodoroService : Service() {
         observeJob = scope.launch {
             try {
                 PomodoroEngine.state.collect { s ->
+                    if (s.running) {
+                        AppUsageWatcher.start(this@PomodoroService)
+                    } else {
+                        AppUsageWatcher.stop()
+                    }
                     if (s.running || s.finished) {
                         val n = buildNotification(s)
                         try {
@@ -67,7 +74,7 @@ class PomodoroService : Service() {
                 android.util.Log.e("PomodoroService", "状态收集异常", e)
             }
         }
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     override fun onDestroy() {
@@ -91,14 +98,24 @@ class PomodoroService : Service() {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(content)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(!s.finished)
             .setContentIntent(openIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+        if (s.running) {
+            // 白名单应用使用期间可通过通知回到专注页
+            val backToFocus = PendingIntent.getActivity(
+                this, 1, Intent(this, com.tombstatue.dailyplan.ui.FocusLockActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.addAction(0, "回到专注", backToFocus)
+        }
+        return builder.build()
     }
 
     private fun vibrate() {

@@ -26,6 +26,7 @@ import com.tombstatue.dailyplan.pomodoro.PomodoroEngine
 import com.tombstatue.dailyplan.ui.FocusLockActivity
 import com.tombstatue.dailyplan.ui.PomodoroScreen
 import com.tombstatue.dailyplan.ui.PomodoroViewModel
+import com.tombstatue.dailyplan.ui.SettingsScreen
 import com.tombstatue.dailyplan.ui.TodayScreen
 import com.tombstatue.dailyplan.ui.theme.Accent
 import com.tombstatue.dailyplan.ui.theme.Bg
@@ -36,6 +37,7 @@ import com.tombstatue.dailyplan.ui.theme.TextDim
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.tombstatue.dailyplan.pomodoro.SettingsStore.init(applicationContext)
         setContent {
             DailyPlanTheme { AppRoot() }
         }
@@ -101,6 +103,13 @@ fun AppRoot() {
                     label = { Text("已完成") },
                     colors = itemColors
                 )
+                NavigationBarItem(
+                    selected = page == 4,
+                    onClick = { page = 4 },
+                    icon = { Text("⚙️", fontSize = 18.sp) },
+                    label = { Text("设置") },
+                    colors = itemColors
+                )
             }
         }
     ) { padding ->
@@ -115,7 +124,8 @@ fun AppRoot() {
             )
             1 -> CalendarScreen(vm, padding, onGoToday = { page = 0 })
             2 -> PomodoroScreen(padding, todayVm = vm)
-            else -> HistoryScreen(vm, padding)
+            3 -> HistoryScreen(vm, padding)
+            else -> SettingsScreen(padding)
         }
     }
 }

@@ -13,8 +13,14 @@ import com.tombstatue.dailyplan.pomodoro.TimerState
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class PomodoroViewModel(app: Application) : AndroidViewModel(app) {
+
+    init {
+        // 进程被杀后恢复计时状态（墙钟重算）
+        viewModelScope.launch { PomodoroEngine.hydrate(app) }
+    }
 
     val state: StateFlow<TimerState> = PomodoroEngine.state
         .stateIn(
